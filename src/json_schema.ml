@@ -294,7 +294,7 @@ let rec pp_element ppf element =
             | Def_ref path ->
               Format.fprintf ppf "$%a" pp_path path
             | Ext_ref uri ->
-              Format.fprintf ppf "$%a" Uri.pp_hum uri
+              Format.fprintf ppf "%s" uri
             | Boolean ->
               Format.fprintf ppf "boolean"
             | Null ->
@@ -429,7 +429,7 @@ let pp ppf schema =
 (*-- errors ----------------------------------------------------------------*)
 
 exception Cannot_parse of path * exn
-exception Dangling_reference of Uri.t
+exception Dangling_reference of string
 exception Bad_reference of string
 exception Unexpected of string * string
 exception Duplicate_definition of path * element * element
@@ -442,7 +442,7 @@ let rec print_error ?print_unknown ppf = function
       (print_error ?print_unknown) exn
   | Dangling_reference uri ->
     Format.fprintf ppf
-      "Dangling reference %s" (Uri.to_string uri)
+      "Dangling reference %s" uri
   | Bad_reference str ->
     Format.fprintf ppf
       "Illegal reference notation %s" str
@@ -572,7 +572,7 @@ module Make (Repr : Json_repr.Repr) = struct
         | Id_ref name ->
           set_always "$ref" (`String ("#" ^ name))
         | Ext_ref uri ->
-          set_always "$ref" (`String (Uri.to_string uri))
+          set_always "$ref" (`String uri)
         | Integer specs ->
           set_always "type" (`String "integer") @
           set_if_some "multipleOf"
@@ -690,23 +690,20 @@ module Make (Repr : Json_repr.Repr) = struct
       | None -> None in
     let opt_uri_field obj n = match opt_string_field obj n with
       | None -> None
-      | Some uri ->
-        match Uri.canonicalize (Uri.of_string uri) with
-        | exception _ -> raise (Cannot_parse ([], Bad_reference (uri ^ " is not a valid URI")))
-        | uri -> Some uri in
+      | Some uri -> Some uri in
     (* local resolution of definitions *)
     let schema_source = match opt_uri_field json "id" with
-      | Some uri -> Uri.with_fragment uri None
-      | None -> Uri.empty in
+      | Some uri -> "Uri.with_fragment uri None"
+      | None -> "Uri.empty" in
     let collected_definitions = ref [] in
     let collected_id_defs = ref [] in
     let collected_id_refs = ref [] in
-    let rec collect_definition : Uri.t -> element_kind = fun uri ->
-      match Uri.host uri, Uri.fragment uri with
+    let rec collect_definition : string -> element_kind = fun uri ->
+      match None, Some "lol" with
       | Some _ (* Actually means: any of host, user or port is defined. *), _ ->
         Ext_ref uri
       | None, None ->
-        raise (Cannot_parse ([], Bad_reference (Uri.to_string uri ^ " has no fragment")))
+        raise (Cannot_parse ([], Bad_reference ("uri has no fragment")))
       | None, Some fragment when not (String.contains fragment '/') ->
         collected_id_refs := fragment :: !collected_id_refs ;
         Id_ref fragment
@@ -727,17 +724,13 @@ module Make (Repr : Json_repr.Repr) = struct
           Def_ref path
         with Not_found -> raise (Cannot_parse ([], Dangling_reference uri))
     (* recursive parser *)
-    and parse_element : Uri.t -> Repr.value -> element = fun source json ->
+    and parse_element : string -> Repr.value -> element = fun source json ->
       let id = opt_uri_field json "id" in
-      let id, source = match id with
-        | None -> None, source
-        | Some uri ->
-          let uri = Uri.canonicalize (Uri.resolve "http" source uri) in
-          Uri.fragment uri, Uri.with_fragment uri None in
+      let id, source = None, source in
       (* We don't support inlined schemas, so we just drop elements with
          external sources and replace them with external references. *)
       if source <> schema_source then
-        element (Ext_ref (Uri.with_fragment source id))
+        element (Ext_ref "")
       else
         let id = match id with
           | None -> None
@@ -1005,11 +998,11 @@ module Make (Repr : Json_repr.Repr) = struct
                  schema_dependencies ; property_dependencies }
       | n -> raise (Cannot_parse ([], Unexpected (n, "a known type"))) in
     (* parse recursively from the root *)
-    let root = parse_element Uri.empty json in
+    let root = parse_element "Uri.empty" json in
     (* force the addition of everything inside /definitions *)
     (match Repr.view (query [ `Field "definitions" ] json) with
      | `O all ->
-       let all = List.map (fun (n, _) -> Uri.of_string ("#/definitions/" ^ n)) all in
+       let all = List.map (fun (n, _) -> "#/definitions/" ^ n) all in
        List.iter (fun uri -> collect_definition uri |> ignore) all
      | _ -> ()
      | exception  Not_found -> ()) ;
@@ -1017,7 +1010,7 @@ module Make (Repr : Json_repr.Repr) = struct
     List.iter
       (fun id ->
          if not (List.mem_assoc id !collected_id_defs) then
-           raise (Cannot_parse ([], Dangling_reference (Uri.(with_fragment empty (Some id))))))
+           raise (Cannot_parse ([], Dangling_reference "(Uri.(with_fragment empty (Some id)))")))
       !collected_id_refs ;
     let ids = !collected_id_defs in
     let source = schema_source in
@@ -1053,7 +1046,7 @@ module Make (Repr : Json_repr.Repr) = struct
         | Def_ref path ->
           if not (definition_exists path definitions) then
             let path = json_pointer_of_path path in
-            raise (Dangling_reference (Uri.(with_fragment empty) (Some path)))
+            raise (Dangling_reference "(Uri.(with_fragment empty) (Some path))")
         | Id_ref id ->
           collected_id_refs := id :: !collected_id_refs ;
         | Ext_ref _ | String _ | Integer _ | Number _ | Boolean | Null | Any | Dummy -> ()
@@ -1065,13 +1058,13 @@ module Make (Repr : Json_repr.Repr) = struct
     List.iter
       (fun id ->
          if not (List.mem_assoc id !collected_id_defs) then
-           raise (Dangling_reference (Uri.(with_fragment empty (Some id)))))
+           raise (Dangling_reference "(Uri.(with_fragment empty (Some id)))"))
       !collected_id_refs ;
     !collected_id_defs
 
   let create root =
     let ids = check_definitions root [] in
-    { root ; definitions = [] ; world = [] ; ids ; source = Uri.empty }
+    { root ; definitions = [] ; world = [] ; ids ; source = "Uri.empty" }
 
   let root { root } =
     root
@@ -1084,8 +1077,8 @@ module Make (Repr : Json_repr.Repr) = struct
     create (element Any)
 
   let self =
-    { root = element (Ext_ref (Uri.of_string version)) ;
-      definitions = [] ; ids = [] ; world = [] ; source = Uri.empty }
+    { root = element (Ext_ref (version)) ;
+      definitions = [] ; ids = [] ; world = [] ; source = "Uri.empty" }
 
   (* remove unused definitions from the schema *)
   let simplify schema =
