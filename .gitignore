@@ -2,7 +2,7 @@
 _build/
 
 node_modules
-lib
+lib/bs
 .vscode
 **.merlin
 *.install
