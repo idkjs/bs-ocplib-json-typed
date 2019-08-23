@@ -30,7 +30,7 @@ let version = "http://json-schema.org/draft-04/schema#"
    a precomputed ID-element map and a cache for external documents. *)
 type schema =
   { root : element ;
-    source : Uri.t (* whose fragment should be empty *) ;
+    source : string (* whose fragment should be empty *) ;
     definitions : (path * element) list ;
     ids : (string * element) list ;
     world : schema list }

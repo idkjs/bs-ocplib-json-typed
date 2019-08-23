@@ -1,5 +1,8 @@
 # jbuilder working directory
 _build/
 
+node_modules
+lib
+.vscode
 **.merlin
 *.install
