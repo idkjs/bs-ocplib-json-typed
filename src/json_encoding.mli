@@ -142,8 +142,6 @@ val bool : bool encoding
 (** An encoding of an OCaml string by a JSON one. *)
 val string : string encoding
 
-(** An encoding of a closed set of OCaml values by JSON strings. *)
-val string_enum : (string * 'a) list -> 'a encoding
 
 (** An encoding of a constant string. *)
 val constant : string -> unit encoding
@@ -251,11 +249,6 @@ val array :
 val list :
   'a encoding ->
   'a list encoding
-
-(** An encoding of an OCaml associative list by a JSON object. *)
-val assoc :
-  'a encoding ->
-  (string * 'a) list encoding
 
 (** An encoding of an OCaml value by a singleton array. *)
 val tup1 :
@@ -468,20 +461,20 @@ end
     Here is an example of how to build such a value for a type ['t].
 
     {[ let read
-         : type tf. (module Json_repr.Repr with type value = tf) -> tf -> 't
-         = fun (module Repr_f) repr ->
-           match Repr_f.view repr with
-           | `Null (* destruct the JSON using [Repr_f.view] *) ->
-             (* create a value of type 't *)
-           | _ ->
-             (* or fail with this wrapping exception *)
-             raise (Cannot_destruct ([ (* location *) ], (* exn *))) in
-       let write
-         : type tf. (module Json_repr.Repr with type value = tf) -> 't -> tf
-         = fun (module Repr_f) v ->
-           (* examine the value and produce a JSON using [Repr_f.repr] *)
-           Repr_f.repr `Null in
-       { read ; write } ]} *)
+      : type tf. (module Json_repr.Repr with type value = tf) -> tf -> 't
+      = fun (module Repr_f) repr ->
+        match Repr_f.view repr with
+        | `Null (* destruct the JSON using [Repr_f.view] *) ->
+          (* create a value of type 't *)
+        | _ ->
+          (* or fail with this wrapping exception *)
+          raise (Cannot_destruct ([ (* location *) ], (* exn *))) in
+      let write
+        : type tf. (module Json_repr.Repr with type value = tf) -> 't -> tf
+        = fun (module Repr_f) v ->
+          (* examine the value and produce a JSON using [Repr_f.repr] *)
+          Repr_f.repr `Null in
+      { read ; write } ]} *)
 type 't repr_agnostic_custom =
   { write : 'rt. (module Json_repr.Repr with type value = 'rt) -> 't -> 'rt ;
     read : 'rf. (module Json_repr.Repr with type value = 'rf) -> 'rf -> 't }
