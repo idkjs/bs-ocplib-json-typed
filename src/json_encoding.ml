@@ -121,9 +121,11 @@ and 'a dft = { name: string ;
              }
 
 and 't case =
-  | Case : { encoding : 'a encoding ;
-             proj : ('t -> 'a option) ;
-             inj : ('a -> 't) } -> 't case
+  | Case : ('a, 't) case_case -> 't case
+
+and ('a, 't) case_case = { encoding : 'a encoding ;
+                           proj : ('t -> 'a option) ;
+                           inj : ('a -> 't) }
 
 (*-- construct / destruct / schema over the main GADT forms ------------------*)
 
