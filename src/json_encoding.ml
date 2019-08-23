@@ -69,16 +69,20 @@ type _ encoding =
   | Tups : 'a encoding * 'b encoding -> ('a * 'b) encoding
   | Custom : 't repr_agnostic_custom * Json_schema.schema -> 't encoding
   | Conv : ('a -> 'b) * ('b -> 'a) * 'b encoding * Json_schema.schema option -> 'a encoding
-  | Describe : { id: string ;
-                 title: string option ;
-                 description: string option ;
-                 encoding: 'a encoding } -> 'a encoding
-  | Mu : { id: string ;
-           title: string option ;
-           description: string option ;
-           self: ('a encoding -> 'a encoding) ;
-         }-> 'a encoding
+  | Describe : 'a describe -> 'a encoding
+  | Mu : 'a mu -> 'a encoding
   | Union : 't case list -> 't encoding
+
+and 'a describe = { id: string ;
+                    title: string option ;
+                    description: string option ;
+                    encoding: 'a encoding }
+
+and 'a mu = { id: string ;
+              title: string option ;
+              description: string option ;
+              self: ('a encoding -> 'a encoding) ;
+            }
 
 and 'a int_encoding =
   { int_name : string ;
@@ -418,9 +422,9 @@ let schema ?definitions_path encoding =
       | Empty -> [ [], false ]
       | Ignore -> [ [], true ]
       | Obj (Req { name = n ; encoding = t ; title ; description }) ->
-          [ [ n, patch_description ?title ?description (schema t), true, None ], false ]
+        [ [ n, patch_description ?title ?description (schema t), true, None ], false ]
       | Obj (Opt { name = n ; encoding = t ; title ; description }) ->
-          [ [ n, patch_description ?title ?description (schema t), false, None ], false ]
+        [ [ n, patch_description ?title ?description (schema t), false, None ], false ]
       | Obj (Dft { name = n ; encoding = t ; title ; description ; default = d }) ->
         let d = Json_repr.repr_to_any (module Json_repr.Ezjsonm) (Ezjsonm_encoding.construct t d) in
         [ [ n, patch_description ?title ?description (schema t), false, Some d], false ]
@@ -550,11 +554,11 @@ let mu name ?title ?description self = Mu { id = name ; title ; description ; se
 let null = Null
 let int =
   Int { int_name = "int" ;
-          of_float = int_of_float ;
-          to_float = float_of_int ;
-          (* cross-platform consistent OCaml ints *)
-          lower_bound = -(1 lsl 30) ;
-          upper_bound = (1 lsl 30) - 1 }
+        of_float = int_of_float ;
+        to_float = float_of_int ;
+        (* cross-platform consistent OCaml ints *)
+        lower_bound = -(1 lsl 30) ;
+        upper_bound = (1 lsl 30) - 1 }
 let ranged_int ~minimum:lower_bound ~maximum:upper_bound name =
   if Sys.word_size = 64
   && (lower_bound < -(1 lsl 30)
@@ -703,38 +707,6 @@ let repr_agnostic_custom { write ; read } ~schema =
 
 let constant s = Constant s
 
-let string_enum cases =
-  let schema =
-    let specs = Json_schema.({ pattern = None ; min_length = 0 ; max_length = None }) in
-    let enum = List.map (fun (s, _) -> Json_repr.(repr_to_any (module Ezjsonm)) (`String s)) cases in
-    Json_schema.(update { (element (String specs)) with enum = Some enum } any) in
-  let len = List.length cases in
-  let mcases = Hashtbl.create len
-  and rcases = Hashtbl.create len in
-  let cases_str = String.concat " " (List.map (fun x -> "'" ^ fst x ^ "'") cases) in
-  List.iter
-    (fun (s, c) ->
-       if Hashtbl.mem mcases s then
-         invalid_arg "Json_encoding.string_enum: duplicate case" ;
-       Hashtbl.add mcases s c ;
-       Hashtbl.add rcases c s)
-    cases ;
-  conv
-    (fun v -> try Hashtbl.find rcases v with Not_found ->
-        invalid_arg (Format.sprintf "Json_encoding.construct: consequence of non exhaustive Json_encoding.string_enum. Strings are: %s" cases_str))
-    (fun s ->
-       (try Hashtbl.find mcases s with Not_found ->
-          let rec orpat ppf = function
-            | [] -> assert false
-            | [ last, _ ] -> Format.fprintf ppf "%S" last
-            | [ prev, _ ; last, _ ] -> Format.fprintf ppf "%S or %S" prev last
-            | (prev, _) :: rem -> Format.fprintf ppf "%S , %a" prev orpat rem in
-          let unexpected = Format.asprintf "string value %S" s in
-          let expected = Format.asprintf "%a" orpat cases in
-          raise (Cannot_destruct ([], Unexpected (unexpected, expected)))))
-    ~schema
-    string
-
 let def id ?title ?description encoding =
   Describe { id ; title ; description ; encoding }
 
@@ -749,7 +721,7 @@ let assoc : type t. t encoding -> (string * t) list encoding = fun t ->
          List.map (fun (n, v) -> n, destruct n t v) l
        | #Json_repr.ezjsonm as k -> raise (unexpected k "asssociative object"))
     ~schema:(let s = schema t in
-     Json_schema.(update (element (Object { object_specs with additional_properties = Some (root s)})) s))
+             Json_schema.(update (element (Object { object_specs with additional_properties = Some (root s)})) s))
 
 let rec is_nullable: type t. t encoding -> bool = function
   | Constant _ -> false
