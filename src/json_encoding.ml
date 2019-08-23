@@ -97,22 +97,28 @@ and bounds =
     maximum : float }
 
 and _ field =
-  | Req : { name: string ;
-            encoding:  'a encoding ;
-            title: string option ;
-            description: string option ;
-          } -> 'a field
-  | Opt : { name: string ;
-            encoding:  'a encoding ;
-            title: string option ;
-            description: string option ;
-          } -> 'a option field
-  | Dft : { name: string ;
-            encoding:  'a encoding ;
-            title: string option ;
-            description: string option ;
-            default: 'a ;
-          } -> 'a field
+  | Req : 'a req -> 'a field
+  | Opt : 'a opt -> 'a option field
+  | Dft : 'a dft  -> 'a field
+
+and 'a req = { name: string ;
+               encoding:  'a encoding ;
+               title: string option ;
+               description: string option ;
+             }
+
+and 'a opt = { name: string ;
+               encoding:  'a encoding ;
+               title: string option ;
+               description: string option ;
+             }
+
+and 'a dft = { name: string ;
+               encoding:  'a encoding ;
+               title: string option ;
+               description: string option ;
+               default: 'a ;
+             }
 
 and 't case =
   | Case : { encoding : 'a encoding ;
