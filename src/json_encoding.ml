@@ -710,19 +710,6 @@ let constant s = Constant s
 let def id ?title ?description encoding =
   Describe { id ; title ; description ; encoding }
 
-let assoc : type t. t encoding -> (string * t) list encoding = fun t ->
-  Ezjsonm_encoding.custom
-    (fun l -> `O (List.map (fun (n, v) -> n, Ezjsonm_encoding.construct t v) l))
-    (fun v -> match v with
-       | `O l ->
-         let destruct n t v = try
-             Ezjsonm_encoding.destruct t v
-           with Cannot_destruct (p, exn) -> raise (Cannot_destruct (`Field n :: p, exn)) in
-         List.map (fun (n, v) -> n, destruct n t v) l
-       | #Json_repr.ezjsonm as k -> raise (unexpected k "asssociative object"))
-    ~schema:(let s = schema t in
-             Json_schema.(update (element (Object { object_specs with additional_properties = Some (root s)})) s))
-
 let rec is_nullable: type t. t encoding -> bool = function
   | Constant _ -> false
   | Int _ -> false

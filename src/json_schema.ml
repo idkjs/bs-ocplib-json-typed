@@ -51,7 +51,7 @@ and element_kind =
   | Combine of combinator * element list
   | Def_ref of path
   | Id_ref of string
-  | Ext_ref of Uri.t
+  | Ext_ref of string
   | String of string_specs
   | Integer of numeric_specs
   | Number of numeric_specs
