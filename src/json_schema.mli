@@ -54,7 +54,7 @@ and element_kind =
   (** A ref to an element from its path in the JSON representation. *)
   | Id_ref of string
   (** A ref to an element from its ID. *)
-  | Ext_ref of Uri.t
+  | Ext_ref of string
   (** A ref to an external element. *)
   | String of string_specs
   (** A string (with optional characteristics). *)
@@ -229,7 +229,7 @@ val pp : Format.formatter -> schema -> unit
 exception Cannot_parse of Json_query.path * exn
 
 (** A reference to a non-existent location was detected. *)
-exception Dangling_reference of Uri.t
+exception Dangling_reference of string
 
 (** A reference litteral could not be understood. *)
 exception Bad_reference of string
